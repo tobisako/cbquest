@@ -1,0 +1,189 @@
+.masthead {
+  margin-top: 10px;
+}
+.masthead h1 {
+  font-size: 2em;
+  -webkit-text-stroke: 2px white;
+  background: -webkit-linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text;
+  margin-bottom: 20px;
+}
+.masthead h2 {
+  max-width: 20rem;
+  font-size: 1rem;
+}
+
+@media (min-width: 768px) {
+  .masthead {
+    margin-top: 10px;
+  }
+  .masthead h1 {
+    font-size: 4rem;
+    line-height: 4rem;
+  }
+}
+
+@media (min-width: 992px) {
+  .masthead {
+    height: 100vh;
+    margin-top: 30px;
+  }
+  .masthead h1 {
+    font-size: 3rem;
+    line-height: 3rem;
+    letter-spacing: 0.8rem;
+  }
+  .masthead h2 {
+    max-width: 30rem;
+    font-size: 1.25rem;
+  }
+}
+
+body {
+  font-family:"游ゴシック Medium",YuGothic,YuGothicM,"Hiragino Kaku Gothic ProN","Hiragino Kaku Gothic Pro",メイリオ,Meiryo,sans-serif;
+  background: -webkit-gradient(linear, left top, left bottom, from(rgba(22, 22, 22, 0.1)), color-stop(75%, rgba(22, 22, 22, 0.5)), to(#161616)), url("../img/bg-tmp.jpg");
+  background: linear-gradient(to bottom, rgba(22, 22, 22, 0.1) 0%, rgba(22, 22, 22, 0.5) 75%, #161616 100%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+  background-size: cover;
+  border: 1px solid white;
+}
+
+a {
+  color: #64a19d;
+}
+
+a:focus, a:hover {
+  text-decoration: none;
+  color: #3c6360;
+}
+
+.bg-black {
+  background-color: #161616 !important;
+}
+
+.bg-primary {
+  background-color: #64a19d !important;
+}
+
+.text-primary {
+  color: #64a19d !important;
+}
+
+footer {
+  padding: 5rem 0;
+  border: 1px solid white;
+
+}
+
+.bg-top {
+  background-color: #020202!important;
+  color: white;
+  text-align: left;
+}
+.bg-right {
+  border: 5px solid black;
+  background: -moz-radial-gradient(#3a3a3a, #060606); 
+  background: -webkit-radial-gradient(#3a3a3a, #060606); 
+  background: radial-gradient(#3a3a3a, #060606); 
+}
+.box-list{
+  border: 1px solid red;
+  background-color: #3c3c3c;
+  color: white;
+  margin-top: 5px;
+  border: 1px solid white;
+
+}
+.box{
+  margin: 5px;
+  border: 5px solid black;
+  font-size: 1.5em;
+  font-weight: 900;
+  text-align: left;
+  padding: 2px 2px 2px 2px;
+  color: #fb6112;
+  -webkit-text-stroke: 1px #3c0101;
+}
+.pt01{
+  background-color: rgb(181, 181, 181);
+  background-image: linear-gradient(90deg, transparent 50%, rgba(255,255,255,0.5) 50%);
+  background-size: 15px 15px;
+}
+
+/* =======================================
+//   right side
+========================================== */
+
+.box-r{
+  height: 300px;
+  border: 1px solid white;
+  margin: 5px;
+}
+
+.item-info-1{
+  width: 100%;
+  height: 200px;
+  margin: 2px 2px 2px 4px;
+}
+.item-info-1 img{
+  max-width: 100%;
+  max-height: 200px;
+  margin: 2px;
+}
+
+.item-info-2{
+  width: 68%;
+  height: 20%;
+  float: right;
+  /*background-color: blue;*/
+  color: white;
+  text-align: left!important;
+}
+.info-text{
+  margin: 0px;
+}
+
+div.scrollarea {
+    width: 880px;
+    height: 140px;
+    background-color: #bff5c4;
+    overflow: scroll;
+}
+ul {list-style: none;}
+
+.cbbox{
+    width: 840px;
+    height: 150px;
+    margin: 10px;
+    border: 1px solid;
+}
+
+.cbpic img {
+    width: 120px;
+    height: 120px;
+    margin: 10px;
+    float: left;
+    border: 1px solid;
+}
+
+.cbinfo {
+    width: 200px;
+    margin: 10px;
+    float: left;
+    border: 1px solid;
+}
+
+.flash{
+  animation: flash 0.2s linear alternate;
+  animation-iteration-count: 10;
+}
+
+@keyframes flash {
+  50% {
+    background: linear-gradient(transparent 0%, orange 0%);
+  }
+}
+

@@ -1,0 +1,429 @@
+<!DOCTYPE html><html><head><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous"><link href="style.css" rel="stylesheet"></head><body>
+<dialog id="d1_dialog"><p><span id="d1_notice1"></span>入札します</p><p>名前と送金額(ether)を入力して下さい。</p>
+<div><input type="text" id="d1_input_name" value="" placeholder="名前（ニックネーム）を入力"></div>
+<div><input type="text" id="d1_input_value" value="" placeholder="ETHを入力"></div>
+<div><button id="d1_done">送金</button></div><p><span id="d1_notice2"></span></p></dialog>
+<script src="./deployed_info.js"></script><script>
+
+window.onload = () => {
+    if(typeof cbt_abi === 'undefined') {
+        appendLog("[deployed_info.js]ファイルが見つかりません。確認して下さい。");
+        return;
+    }
+    if (typeof window.ethereum !== 'undefined') {
+        ethereum.enable().then((accounts) => {
+            ethereum.on('accountsChanged', (accounts) => {
+                location.reload(true);
+            });
+            init();
+        }).catch((err) => {
+            document.getElementById('info').innerHTML = "MetaMaskと接続できませんでした";
+        });
+    } else {
+        document.getElementById('info').innerHTML = "MetaMaskが見つかりません";
+    }
+}
+
+function init() {
+    document.getElementById('livenetwork').innerHTML = deployed_network;
+    window.auction_contract = web3.eth.contract(cba_abi).at(cba_address);
+    window.token_contract = web3.eth.contract(cbt_abi).at(cbt_address);
+    window.auction_contract.exhibitorAddress.call((err, res) => {
+        if(!err) {
+            if(res == web3.eth.accounts[0]) {
+                window.isExhibitor = true;
+                document.getElementById('info').innerHTML = '<font size="+2" color="red">あなたは出品者です。</font>';
+                document.getElementById("ex_block").style.display = "block";
+            } else {
+                window.isExhibitor = false;
+                document.getElementById("bid_block").style.display = "block";
+                window.auction_contract.getBidderInfoByAddr.call(web3.eth.accounts[0], (err, res) => {
+                    if(!err) {
+                        window.bidName =　res[0];
+                        window.bidBalance = parseInt(res[1]);
+                        if(window.bidName == "") {
+                            document.getElementById('info').innerHTML = '<font size="+2" color="red">あなたは入札していません。</font>';
+                        } else {
+                            document.getElementById('info').innerHTML = `<font size="+2" color="red">${window.bidName}さん、あなたは入札しています。</font>`;
+                        }
+                    } else {
+                        console.log("getBidderInfoByAddr err: " + err);
+                    }
+                });
+            }
+            mainLoop();
+            setInterval(mainLoop, 2000);
+        } else {
+            console.log("exhibitorAddress err: " + err);
+        }
+    });
+}
+
+function mainLoop() {
+    getPhase();             // フェーズ取得
+    getExhibitInfo();       // 出品情報
+    getBiddersList();       // 入札情報
+}
+
+function getPhase() {
+    window.auction_contract.phase.call((err, res) => {
+        if(!err) {
+            window.phase = parseInt(res);
+            switch(window.phase) {
+                case 0:
+                    document.getElementById('phase_info').innerHTML = '<font size="+3">まだ出品されていません。</font>';
+                    break;
+                case 1:
+                    document.getElementById('phase_info').innerHTML = '<font size="+3">オークション開催中！</font>';
+                    document.getElementById("button_bid").disabled = false;
+                    document.getElementById("button_ex_close").disabled = false;
+                    getHighestBidder();
+                    break;
+                case 2:
+                    document.getElementById('phase_info').innerHTML = '<font size="+3">落札者が決定しました！！</font>';
+                    document.getElementById("button_bid").disabled = true;
+                    document.getElementById("button_ex_close").disabled = true;
+                    document.getElementById("button_ex_transfer").disabled = false;
+                    getSuccessfulBbiddeInfo();
+                    break;
+                case 3:
+                    document.getElementById('phase_info').innerHTML = '<font size="+3">アイテムとetherの交換が行われました。<br>オークション終了です。<br>落札者は、アイテムを装備出来ます。<br>落札できなかった方は、<br>etherを取り戻す事が出来ます。</font>';
+                    document.getElementById("button_bid").disabled = true;
+                    document.getElementById("button_withdraw").disabled = false;
+                    getSuccessfulBbiddeInfo();
+                    break;
+            }
+        } else {
+            console.log("phase err:" + err);
+        }
+    });
+}
+
+function getHighestBidder() {
+    window.auction_contract.calcHighestBidder.call((err, res) => {
+        if(!err) {
+            if(parseInt(res[1]) == 0) {
+                document.getElementById('bid_info').innerHTML = '<font size="+2">入札受付中。</font>';
+            } else {
+                document.getElementById('bid_info').innerHTML = '<font size="+2" color="red">現在の最高入札者は「' + res[2] + '」さんです。<br>入札受付中！</font>';
+            }
+        } else {
+            console.log("calcHighestBidder err: " + err);
+        }
+    });
+}
+
+function getSuccessfulBbiddeInfo() {
+    window.auction_contract.successfulBbidderAddress.call((err, res) => {
+        if(!err) {
+            window.auction_contract.getBidderInfoByAddr.call(res, (err, res) => {
+                if(!err) {
+                    document.getElementById('bid_info').innerHTML = '<font size="+2" color="red">落札者は「' + res[0] + '」さんです。<br>おめでとうございます！！</font>';
+                } else {
+                    console.log("getBidderInfoByAddr err:" + err);
+                }
+            });
+        } else {
+            console.log("successfulBbidderAddress err:" + err);
+        }
+    });
+}
+
+function getExhibitInfo() {
+    window.auction_contract.exhibitionTokenId.call((err, res) => {
+        if(!err) {
+            window.exhibitionTokenId = parseInt(res);
+            window.token_contract.getGameAssetParam.call(window.exhibitionTokenId, (err, res) => {
+                if(!err) {
+                    document.getElementById('ex_title').innerHTML = res[0];
+                    var pic = '<img src="https://gateway.ipfs.io/ipfs/' + res[3] + '"/>';
+                    document.getElementById('item_pic').innerHTML = pic;
+                    document.getElementById('item_attack').innerHTML = res[1].toString();
+                    document.getElementById('item_difence').innerHTML = res[2].toString();
+                } else {
+                    console.log("getGameAssetParam err: " + err);
+                }
+            });
+        } else {
+            console.log("exhibitionTokenId err: " + err);
+        }
+    });
+}
+
+function getBiddersList() {
+    window.auction_contract.getBiddersNum.call((err, res) => {
+        if(!err) {
+            window.bidnum = parseInt(res);
+            window.idx = 0;
+            getBidInfo();
+        } else {
+            console.log("getBiddersNum err: " + err);
+        }
+    });
+}
+
+function getBidInfo() {
+    if(window.bidnum <= window.idx) return;
+    window.auction_contract.getBidderInfoByIndex.call(window.idx, (err, res) => {
+        if(!err) {
+            updateBidList(res[0], res[1], res[2]);
+            window.idx ++;
+            getBidInfo();
+        } else {
+            console.log("getBidderInfoByIndex err: " + err);
+        }
+    });
+}
+
+function bid() {
+    window.auction_contract.getBidderInfoByAddr.call(web3.eth.accounts[0], (err, res) => {
+        if(!err) {
+            window.bidBalance = parseInt(res[1]);
+            if(window.bidBalance == 0) {
+                firstBidPopUp();
+            } else {
+                window.bidName =　res[0];
+                addBidPopup();
+            }
+        } else {
+            console.log("getBidderInfoByAddr err: " +err);
+            location.reload(true);
+        }
+    });
+}
+
+function firstBidPopUp() {
+    document.getElementById('d1_notice1').innerHTML = "新規";
+    document.getElementById('d1_notice2').innerHTML = "";
+    document.getElementById('d1_input_name').value = "";
+    document.getElementById('d1_input_value').value = "";
+    document.getElementById('d1_input_name').disabled = false;
+    document.getElementById('d1_input_value').disabled = false;
+    document.getElementById('d1_done').disabled = false;
+    var dialog = document.getElementById('d1_dialog');
+    var btn_done = document.getElementById('d1_done');
+    btn_done.addEventListener('click', execFirstBid);
+    dialog.addEventListener('cancel', (event) => {
+        btn_done.removeEventListener('click', execFirstBid);
+        document.getElementById('d1_dialog').close();
+    });
+    dialog.showModal();
+}
+
+function execFirstBid() {
+    var regist_name = document.getElementById('d1_input_name').value;
+    var ether = document.getElementById('d1_input_value').value;
+    var wei = parseInt(web3.toWei(ether, 'ether'));
+    if(regist_name == "" || wei == 0) {
+        document.getElementById('d1_dialog').close();
+        return;
+    }
+    document.getElementById('d1_done').disabled = true;
+    document.getElementById('d1_input_name').disabled = true;
+    document.getElementById('d1_input_value').disabled = true;
+    window.auction_contract.firstBid.sendTransaction(regist_name, {from:web3.eth.accounts[0], value: wei, gas:5500000}, (err, res) => {
+        if(!err) {
+            document.getElementById('d1_notice2').innerHTML = '<br><font color="red">入札しました！完了までお待ちください。</font><br><progress></progress>';
+            window.bidName = regist_name;
+            waitBidDone();
+        } else {
+            console.log("firstBid err:" + err);
+            location.reload(true);
+        }
+    });
+}
+
+function addBidPopup() {
+    document.getElementById('d1_notice1').innerHTML = "追加";
+    document.getElementById('d1_notice2').innerHTML = "";
+    document.getElementById('d1_input_name').value = window.bidName;
+    document.getElementById('d1_input_name').disabled = true;
+    document.getElementById('d1_input_value').value = "";
+    document.getElementById('d1_input_value').disabled = false;
+    document.getElementById('d1_done').disabled = false;
+    var dialog = document.getElementById('d1_dialog');
+    var btn_done = document.getElementById('d1_done');
+    btn_done.addEventListener('click', execAddBid);
+    dialog.addEventListener('cancel', (event) => {
+        btn_done.removeEventListener('click', execAddBid);
+        document.getElementById('d1_dialog').close();
+    });
+    dialog.showModal();
+}
+
+function execAddBid() {
+    var ether = document.getElementById('d1_input_value').value;
+    var wei = parseInt(web3.toWei(ether, 'ether'));
+    if(wei == 0) {
+        document.getElementById('d1_dialog').close();
+        return;
+    }
+    document.getElementById('d1_done').disabled = true;
+    document.getElementById('d1_input_value').disabled = true;
+    window.auction_contract.addBid.sendTransaction({from:web3.eth.accounts[0], value: wei, gas:5500000}, (err, res) => {
+        if(!err) {
+            document.getElementById('d1_notice2').innerHTML = '<br><font color="red">追加入札しました！完了までお待ちください。</font><br><progress></progress>';
+            waitBidDone();
+        } else {
+            console.log("addBid err:" + err);
+            location.reload(true);
+        }
+    });
+}
+
+function waitBidDone() {
+    console.log("waitBidDone - start");
+    window.auction_contract.getBidderInfoByAddr.call(web3.eth.accounts[0], (err, res) => {
+        if(!err) {
+            console.log("res:" + res[0] + parseInt(res[1]));
+            if(parseInt(res[1]) > window.bidBalance) {
+                console.log("成功！ " + window.bidBalance + " => " + res[1]);
+                document.getElementById('d1_dialog').close();
+            } else {
+                console.log("mada");
+                setTimeout(waitBidDone, 1000);
+            }
+        } else {
+            console.log("getBidderInfoByAddr err:" + err);
+            document.getElementById('d1_dialog').close();
+        }
+    });
+} 
+
+function bidEnd() {
+    window.auction_contract.closeAuction.sendTransaction({from:web3.eth.accounts[0], gas:5500000}, (err, res) => {
+        if(!err) {
+            console.log("closeAuction: ");
+        } else {
+            console.log("closeAuction err: " + err);
+            location.reload(true);
+        }
+    });
+}
+
+function bidEndWait() {
+    window.auction_contract.phase.call((err, res) => {
+        if(!err) {
+            window.phase = parseInt(res);
+            if(window.phase > 1) {
+                console.log("bidEndWait: 落札OK");
+                location.reload(true);
+            } else {
+                console.log("bidEndWait: チェック中・・・");
+                setTimeout(bidEndWait, 2000);
+            }
+        } else {
+            console.log("phase err: " + err);
+            location.reload(true);
+        }
+    });
+}
+
+function transferNFT() {
+    window.auction_contract.transferNFT.sendTransaction({from:web3.eth.accounts[0], gas:5500000}, (err, res) => {
+        if(!err) {
+            console.log("transferNFT: ");
+        } else {
+            console.log("transferNFT err: " + err);
+            location.reload(true);
+        }
+    });
+}
+
+function withdrawEther() {
+    window.auction_contract.getBidderInfoByAddr.call(web3.eth.accounts[0], (err, res) => {
+        if(!err) {
+            if(parseInt(res[1]) == 0) {
+                document.getElementById('info2').innerHTML = "etherを預け入れていません。";
+            } else {
+                document.getElementById("button_withdraw").disabled = true;
+                window.auction_contract.withDrawBidders.sendTransaction({from:web3.eth.accounts[0], gas:5500000}, (err, res) => {
+                    if(!err) {
+                        console.log("withDrawBidders: OK");
+                        document.getElementById('info2').innerHTML = "etherを払い戻しました。反映まで少しお待ち下さい。";
+                    } else {
+                        console.log("withDrawBidders err: " + err);
+                        location.reload(true);
+                    }
+                });
+            }
+        } else {
+            console.log("getBidderInfoByAddr err: " + err);
+        }
+    });
+}
+
+var g_append_wei = [];
+function updateBidList(address, name, wei) {
+    if(document.getElementById(address) != null) {
+        var isFlash = (g_append_wei[address] != wei.toString()) ? true : false;
+        document.getElementById(`${address}`).innerHTML = makeMessage(name, wei, isFlash);
+        if(isFlash) g_append_wei[address] = wei;
+        return;
+    }
+    g_append_wei[address] = wei;
+    appendList(address, name, wei);
+}
+
+function appendList(address, name, wei) {
+    var msg = makeMessage(name, wei);
+    var tip = `address=[${address}] name=[${name}]`;
+    var parent = document.getElementById('list');
+    var newChild = `<div id='${address}' class='box pt01' title='${tip}'>${msg}</div>`;
+    parent.insertAdjacentHTML('beforeend', newChild);
+}
+
+function makeMessage(name, wei, isFlash) {
+    var ether = web3.fromWei(wei.toString(), 'ether');
+    if(isFlash) {
+        return `${name}<br><span class="flash">${ether}</span>ether`;
+    }
+    return `${name}<br><span>${ether}</span>ether`;
+}
+
+</script>
+<nav class="navbar navbar-dark bg-top">
+<div><img src="https://gateway.ipfs.io/ipfs/QmWaqryR8FX5uJbQdMprL4Nj4Sx2YPC57zo1ZaXRYryDJa" width="48" height="48"/> CloseMountain (<span id="livenetwork"></span>)</div></nav>
+<main>
+<div class="masthead">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-4">
+          <div id='list' class='m-1'>
+            <div id='list-child-0' class='box pt01' title="bidders list">入札リスト</div>
+          </div>
+        </div>
+        <div class="col-md-8">
+          <div id='item' class="m-1 p-1 mx-auto text-center bg-right">
+            <h1 id="ex_title">出品タイトル</h1>
+            <div id='item-child-1' class='box-r'>
+                <div class="item-info-1" id="item_pic"></div>
+                <div class='item-info-2'>
+                  <p class='info-text'>攻撃力: <span id="item_attack"></span></p>
+                  <p class='info-text'>防御力: <span id="item_difence"></span></p>
+                </div>
+            </div>
+          </div>
+          <hr>
+          <span id="bid_info"></span>
+          <hr>
+          <span id="phase_info"></span>
+          <hr>
+          <span id="info"></span><br>
+          <div id="bid_block" style="display:none"><br>
+                <input type="button" value=" 入札 " id="button_bid" disabled="true" onclick="bid();">　　
+                <input type="button" value=" etherを取り戻す " id="button_withdraw" disabled="true" onclick="withdrawEther();">　　
+          </div>
+          <div id="ex_block" style="display:none"><br>
+                <input type="button" value="オークションを締め切る" id="button_ex_close" disabled="true"onclick="bidEnd();"><br>
+                <input type="button" value="アイテムとetherを交換する" id="button_ex_transfer" disabled="true" onclick="transferNFT();"><br>
+          </div>
+          <span id="info2"></span><br>
+        </div>
+      </div>
+      <br>
+    </div>
+  </div>
+</main>  
+<footer class="bg-black small text-center text-white-50"><div class="container">Copyright &copy; ConsensusBase 2019</div></footer>
+</body></html>

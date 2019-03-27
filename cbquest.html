@@ -1,0 +1,280 @@
+<!DOCTYPE html><html><head><link href="style.css" rel="stylesheet"></head><body>
+<dialog id="d1_dialog"><p>- CBQuest -</p><p>名前を登録して下さい</p>
+<div>ゆうしゃ <input type="text" id="d1_input_value" value="" placeholder="名前（ニックネーム）を入力"></div>
+<div><button id="d1_done">決定</button></div></dialog>
+<dialog id="d2_dialog"><p>MetaMaskのアカウントが切り替わりました。</p><p>リロードしてください。</p>
+<div><button id="d2_done">リロード</button></div></dialog>
+<script src="./deployed_info.js"></script><script>
+
+window.onload = () => {
+    if(typeof cbq_abi === 'undefined') {
+        appendLog("[deployed_info.js]ファイルが見つかりません。確認して下さい。");
+        return;
+    }
+    if (typeof window.ethereum !== 'undefined') {
+        window.contract = web3.eth.contract(cbq_abi).at(cbq_address);
+        ethereum.enable().then((accounts) => {
+            ethereum.on('accountsChanged', (accounts) => {
+                onChangeMetaMaskAccount();
+            });
+            window.addAttack = 0;
+            window.addDifence = 0;
+            window.isEquipEnable = false;
+            checkPlayerRegistered();
+        }).catch((err) => {
+            appendLog("MetaMaskと接続できませんでした: " + err);
+        });
+    } else {
+        appendLog("MetaMaskが見つかりません");
+    }
+}
+
+function onChangeMetaMaskAccount() {
+    var dialog = document.getElementById('d2_dialog');
+    var btn_done = document.getElementById('d2_done');
+    btn_done.addEventListener('click', () => { location.reload(true); });
+    dialog.showModal();
+    clearInterval(window.timer);
+}
+
+function checkPlayerRegistered() {
+    window.contract.checkPlayerRegistered.call((err, res) => {
+        if(!err) {
+            if(res == true) {
+                appendLog("おかえりなさい！");
+                standBy();
+            } else {
+                registAccount();
+            }
+        } else {
+            console.log("ERR: " + err);
+        }
+    });
+}
+
+function registAccount() {
+    var dialog = document.getElementById('d1_dialog');
+    var btn_done = document.getElementById('d1_done');
+    btn_done.addEventListener('click', execRegistAccount);
+    dialog.addEventListener('cancel', (event) => {
+        btn_done.removeEventListener('click', execRegistAccount);
+        location.reload(true);
+    });
+    dialog.showModal();
+}
+
+function execRegistAccount() {
+    var regist_name = document.getElementById('d1_input_value').value;
+    var level = 1;
+    var hp = 48;
+    var attack = 20;
+    var difence = 10;
+    var hash = "QmVRzzpnfFHGh8T21dz9AoDvwC1FKpu98RQQM3zgdjrFwH";
+    window.contract.newPlayer.sendTransaction(regist_name, level, hp, attack, difence, hash, {from:web3.eth.accounts[0], gas:5500000}, (err, res) => {
+        if(!err) {
+            document.getElementById('d1_dialog').close();
+            appendLog(regist_name + "さん、登録完了までしばらくお待ちください。。");
+            waitLoop();
+        } else {
+            appendLog("ブラウザをリロードし、やり直してください。。");
+            console.log("registAccount:NG" + err);
+        }
+    });
+}
+
+function waitLoop() {
+    window.contract.checkPlayerRegistered.call((err, res) => {
+        if(!err) {
+            if(res == true) {
+                appendLog("いらっしゃいませ！");
+                standBy();
+            } else {
+                setTimeout(() => { waitLoop(); }, 500);
+            }
+        } else {
+            console.log("ERR: " + err);
+        }
+    });
+}
+
+function standBy() {
+    document.getElementById('livenetwork').innerHTML = deployed_network;
+    document.getElementById('player_account').innerHTML = web3.eth.accounts[0];
+    getPlayerInfo();
+    getAssetList();
+}
+
+function getPlayerInfo() {
+    window.contract.getPlayerIndex.call((err, res) => {
+        if(!err) {
+            window.playerIndex = parseInt(res);
+            getPlayerInfoDetail();
+        } else {
+            console.log("ERR: " + err);
+        }
+    });
+}
+
+function getPlayerInfoDetail() {
+    window.contract.getEquipmentadditionalPower.call((err, res) => {
+        if(!err) {
+            window.addAttack = parseInt(res[0]);
+            window.addDifence = parseInt(res[1]);
+            window.isEquipEnable = res[2];
+            window.contract.players.call(window.playerIndex, (err, res) => {
+                if(!err) {
+                    var pic = '<img src="https://gateway.ipfs.io/ipfs/' + res[2] + '" width="100" height="100"/>';
+                    document.getElementById('player_pic').innerHTML = pic;
+                    document.getElementById('player_name').innerHTML = res[1];
+                    document.getElementById('player_level').innerHTML = res[3];
+                    document.getElementById('player_hp').innerHTML = res[4];
+                    document.getElementById('player_attack').innerHTML = (parseInt(res[5]) + window.addAttack) + " (+" + window.addAttack + ")";
+                    document.getElementById('player_difence').innerHTML = (parseInt(res[6]) + window.addDifence) + " (+" + window.addDifence + ")";
+                    window.isEquipment = res[7];
+                    window.equipment_tokenId = parseInt(res[8]);
+                    getEquipmentInfo();
+                    setTimeout(getPlayerInfo, 1000);
+                } else {
+                    console.log("players ERR: " + err);
+                }
+            });
+        } else {
+            console.log("getEquipmentadditionalPower: err " + err);
+        }
+    });
+}
+
+function getAssetList() {
+    window.contract.getAssetBalance.call((err, res) => {
+        if(!err) {
+            window.assetBalance = parseInt(res);
+            window.getIndex = 0;
+            window.itemlistStr = "";
+            getAssetInfo();
+        } else {
+            console.log("ERR: " + err);
+        }
+    });
+}
+
+function getAssetInfo() {
+    if(window.assetBalance <= window.getIndex) {
+        document.getElementById('player_itemnum').innerHTML = window.assetBalance;
+        document.getElementById('player_itemlist').innerHTML = window.itemlistStr;
+        setTimeout(getAssetList, 1000);
+        return;
+    }
+    window.contract.getAssetInfoByIndex.call(window.getIndex, (err, res) => {
+        if(!err) {
+            window.itemlistStr += "ID=" + res[0] + " " + res[1] + "<br>";
+            window.getIndex ++;
+            getAssetInfo();
+        } else {
+            console.log("ERR: " + window.getIndex + ", " + err);
+        }
+    });
+}
+
+function getEquipmentInfo() {
+    if(window.isEquipment) {
+        window.contract.getAssetInfoByTokenId.call(window.equipment_tokenId, (err, res) => {
+            if(!err) {
+                var pic = '<img src="https://gateway.ipfs.io/ipfs/' + res[3] + '" width="100" height="100"/>';
+                document.getElementById('equip_pic').innerHTML = pic;
+                document.getElementById('equip_name').innerHTML = res[0];
+                document.getElementById('equip_attack').innerHTML = res[1];
+                document.getElementById('equip_difence').innerHTML = res[2];
+                if(window.isEquipment == true && window.isEquipEnable == false) {
+                    document.getElementById('equip_fatal').innerHTML = '<font color="red">※所有していません！</font>';
+                } else {
+                    document.getElementById('equip_fatal').innerHTML = "";
+                }
+            } else {
+                console.log("getAssetInfoByTokenId err: " + err);
+                document.getElementById('equip_name').innerHTML = "装備していません";
+            }
+        });
+    } else {
+        var ng = "Qmdp9d8LQMZMCGZza7ug7DY1YaT2E8pi2A2FxgrudimDvX";
+        var pic = '<img src="https://gateway.ipfs.io/ipfs/' + ng + '" width="100" height="100"/>';
+        document.getElementById('equip_pic').innerHTML = pic;
+        document.getElementById('equip_name').innerHTML = "装備していません";
+        document.getElementById('equip_attack').innerHTML = "";
+        document.getElementById('equip_difence').innerHTML = "";
+    }
+}
+
+function changeEquip() {
+    var tokenId = document.getElementById('text_tokenId').value;
+    window.contract.setEquipmentTokenId.sendTransaction(tokenId, {from:web3.eth.accounts[0], gas:5500000}, (err, res) => {
+        if(!err) {
+            appendLog("装備を変更しました。反映まで少しお待ち下さい。");
+        } else {
+            console.log("setEquipmentTokenId:NG" + err);
+        }
+    });
+}
+
+function removeEquip() {
+    window.contract.removeEquipment.sendTransaction({from:web3.eth.accounts[0], gas:5500000}, (err, res) => {
+        if(!err) {
+            appendLog("装備を外しました。反映まで少しお待ち下さい。");
+        } else {
+            console.log("removeEquipment:NG" + err);
+        }
+    });
+}
+
+function openAuction() {
+    var tokenId = document.getElementById('opensea_tokenId').value;
+    var url = 'https://rinkeby.opensea.io/assets/' + cbt_address + '/' + tokenId;
+    window.open(url, '_blank');
+    console.log("open: " + url);
+}
+
+function appendLog(msg) {
+        var li = document.createElement("li");
+        li.innerHTML = msg;
+        document.getElementById("messages").appendChild(li);
+        document.getElementById("msgarea").scrollTop = document.getElementById("msgarea").scrollHeight;
+    }
+
+</script>
+<main>
+<div class="area_info"> CBQuest (<span id="livenetwork"></span>) <span id="player_account"></span>
+    <div class="cbbox">
+        <div class="cbpic"><span id="player_pic"></span></div>
+        <div class="cbinfo">
+            勇者 <span id="player_name"></span><br>
+            LEVEL: <span id="player_level"></span><br>
+            HP: <span id="player_hp"></span><br>
+            ATTACK: <span id="player_attack"></span><br>
+            DIFENCE: <span id="player_difence"></span><br>
+        </div>
+        <div class="cbinfo">
+            ERC721所有アイテム(<span id="player_itemnum"></span>)<br>
+            <span id="player_itemlist"></span>
+        </div>
+    </div>
+    <div class='cbbox'>
+        <div class="cbpic">
+            <span id="equip_pic"></span>
+        </div>
+        <div class="cbinfo">
+            装備: <span id="equip_name"></span><br>
+            攻撃力: <span id="equip_attack"></span><br>
+            防御力: <span id="equip_difence"></span><br>
+            <span id="equip_fatal"></span>
+        </div>
+    </div>
+</div><hr>
+<div class="area_chat"><div class="scrollarea" id="msgarea"><ul id="messages"></ul></div><hr>
+<div class="area_div1"><br>
+    <input type="text" size=12 placeholder="IDを入力" id="text_tokenId">
+    <input type="button" value="アイテムを装備する" onclick="changeEquip();">　　
+    <input type="button" value="アイテム装備を外す" onclick="removeEquip();">　　
+    <input type="text" size=12 placeholder="IDを入力" id="opensea_tokenId">
+    <input type="button" value="OpenSeaで開く" onclick="openAuction();"/><br>
+    <hr>
+</div>
+</main></body></html>
