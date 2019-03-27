@@ -1,8 +1,10 @@
 // CB WorkShop 2019/3/21
 const HDWalletProvider = require('truffle-hdwallet-provider');
 
-//const INFURA_PROJECT_ID = "";
-//const mnemonic = "";
+//////////////////////////////////////
+const INFURA_PROJECT_ID = "";
+const mnemonic = "";
+//////////////////////////////////////
 
 module.exports = {
   networks: {
