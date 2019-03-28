@@ -15,12 +15,12 @@ module.exports = {
       gas: 5500000,
     },
     rinkeby: {
-      provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/${INFURA_PROJECT_ID}`),
+      provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/${INFURA_PROJECT_ID}`),
       network_id: "*",
       gas: 5500000,
     },
     kovan: {
-      provider: () => new HDWalletProvider(mnemonic, `https://kovan.infura.io/${INFURA_PROJECT_ID}`),
+      provider: () => new HDWalletProvider(mnemonic, `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`),
       network_id: "*",
       gas: 5500000,
     }
